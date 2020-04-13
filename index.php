@@ -207,7 +207,8 @@ function prepareSheets($bot, $userId) {
     // アップデート
     updateUserSheet($row['userid'], $sheetArray);
   }
-
+  // 全てのユーザーにシートのImagemapを送信
+  pushSheetToUser($bot, $userId, 'ビンゴ開始！');
 }
 
 // ユーザーのシートをアップデート
@@ -217,6 +218,37 @@ function updateUserSheet($userId, $sheet) {
   $sth = $dbh->prepare($sql);
   $sth->execute(array(json_encode($sheet), $userId));
 }
+
+// 全てのユーザーにシートのImagemapを送信
+function pushSheetToUser($bot, $userId, $text) {
+  $dbh = dbConnection::getConnection();
+  $sql = 'select pgp_sym_decrypt(userid, \'' . getenv('DB_ENCRYPT_PASS') . '\') as userid, sheet from ' . TABLE_NAME_SHEETS . ' where roomid = ?';
+  $sth = $dbh->prepare($sql);
+  $sth->execute(array(getRoomIdOfUser($userId)));
+
+  $actionsArray = array();
+  array_push($actionsArray, new LINE\LINEBot\ImagemapActionBuilder\ImagemapMessageActionBuilder(
+    '-',
+    new LINE\LINEBot\ImagemapActionBuilder\AreaBuilder(0, 0, 1, 1)));
+
+  // ユーザー一人ひとりずつ処理
+  foreach ($sth->fetchAll() as $row) {
+    $imagemapMessageBuilder = new \LINE\LINEBot\MessageBuilder\ImagemapMessageBuilder (
+      'https://' . $_SERVER['HTTP_HOST'] .  '/sheet/' . urlencode($row['sheet']) . '/' . urlencode(json_encode([0])) . '/' . uniqid(),
+      'シート',
+      new LINE\LINEBot\MessageBuilder\Imagemap\BaseSizeBuilder(1040, 1040),
+      $actionsArray
+    );
+    $builder = new \LINE\LINEBot\MessageBuilder\MultiMessageBuilder();
+    $builder->add(new \LINE\LINEBot\MessageBuilder\TextMessageBuilder($text));
+    $builder->add($imagemapMessageBuilder);
+    
+    $bot->pushMessage($row['userid'], $builder);
+    
+    
+  }
+}
+
 
 // テキストを返信。引数はLINEBot、返信先、テキスト
 function replyTextMessage($bot, $replyToken, $text) {
