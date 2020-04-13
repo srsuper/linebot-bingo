@@ -41,14 +41,63 @@ foreach ($events as $event) {
   }
   // オウム返し
   // $bot->replyText($event->getReplyToken(), $event->getText());
-  replyTextMessage($bot, $event->getReplyToken(), $event->getText());
+  // replyTextMessage($bot, $event->getReplyToken(), $event->getText());
   // 他のfunctionを使うときは,それぞれの記述を書く事
   // テキストを返信
   // $bot->replyText($event->getReplyToken(), 'TextMessage');
   // テキストを返信、その２
   // replyTextMessage($bot, $event->getReplyToken(), 'こんにちは');
   // その他も同様
+
+  // リッチコンテンツがタップされた時
+  if(substr($event->getText(), 0, 4) == 'cmd_') {
+    // ルーム作成
+    if(substr($event->getText(), 4) == 'newroom') {
+      // ユーザーが未入室の時
+      if(getRoomIdOfUser($event->getUserId()) === PDO::PARAM_NULL) {
+        // ルームを作成し入室後ルームIDを取得
+        $roomId = createRoomAndGetRoomId($event->getUserId());
+        // ルームIDをユーザーに返信
+        replyMultiMessage($bot,
+          $event->getReplyToken(),
+          new \LINE\LINEBot\MessageBuilder\TextMessageBuilder('ルームを作成し、入室しました。ルームIDは'),
+          new \LINE\LINEBot\MessageBuilder\TextMessageBuilder($roomId),
+          new \LINE\LINEBot\MessageBuilder\TextMessageBuilder('です。'));
+      }
+      // 既に入室している時
+      else {
+        replyTextMessage($bot, $event->getReplyToken(), '既に入室済みです。');
+      }
+    }
+    continue;
+  }
 }
+
+
+// ユーザーIDからルームIDを取得
+function getRoomIdOfUser($userId) {
+  $dbh = dbConnection::getConnection();
+  $sql = 'select roomid from ' . TABLE_NAME_SHEETS . ' where ? = pgp_sym_decrypt(userid, \'' . getenv('DB_ENCRYPT_PASS') . '\')';
+  $sth = $dbh->prepare($sql);
+  $sth->execute(array($userId));
+  if (!($row = $sth->fetch())) {
+    return PDO::PARAM_NULL;
+  } else {
+    return $row['roomid'];
+  }
+}
+
+// ルームを作成し入室後ルームIDを返す
+function createRoomAndGetRoomId($userId) {
+  $roomId = uniqid();
+  $dbh = dbConnection::getConnection();
+  $sql = 'insert into '. TABLE_NAME_SHEETS .' (userid, sheet, roomid) values (pgp_sym_encrypt(?, \'' . getenv('DB_ENCRYPT_PASS') . '\'), ?, ?) ';
+  $sth = $dbh->prepare($sql);
+  $sth->execute(array($userId, PDO::PARAM_NULL, $roomId));
+
+  return $roomId;
+}
+
 
 // テキストを返信。引数はLINEBot、返信先、テキスト
 function replyTextMessage($bot, $replyToken, $text) {
