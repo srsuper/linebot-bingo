@@ -69,7 +69,48 @@ foreach ($events as $event) {
         replyTextMessage($bot, $event->getReplyToken(), '既に入室済みです。');
       }
     }
+    // 入室
+    else if(substr($event->getText(), 4) == 'enter') {
+      // ユーザーが未入室の時
+      if(getRoomIdOfUser($event->getUserId()) === PDO::PARAM_NULL) {
+        replyTextMessage($bot, $event->getReplyToken(), 'ルームIDを入力してください。');
+      } else {
+        replyTextMessage($bot, $event->getReplyToken(), '入室済みです。');
+      }
+    }
+
+    // 退室の確認ダイアログ
+    else if(substr($event->getText(), 4) == 'leave_confirm') {
+      replyConfirmTemplate($bot, $event->getReplyToken(), '本当に退出しますか？', '本当に退出しますか？',
+        new LINE\LINEBot\TemplateActionBuilder\MessageTemplateActionBuilder('はい', 'cmd_leave'),
+        new LINE\LINEBot\TemplateActionBuilder\PostbackTemplateActionBuilder('いいえ', 'cancel'));
+    }
+    // 退室
+    else if(substr($event->getText(), 4) == 'leave') {
+      if(getRoomIdOfUser($event->getUserId()) !== PDO::PARAM_NULL) {
+        leaveRoom($event->getUserId());
+        replyTextMessage($bot, $event->getReplyToken(), '退室しました。');
+      } else {
+        replyTextMessage($bot, $event->getReplyToken(), 'ルームに入っていません。');
+      }
+    }
+
     continue;
+  }
+}
+
+
+// リッチコンテンツ以外の時(ルームIDが入力された時)
+if(getRoomIdOfUser($event->getUserId()) === PDO::PARAM_NULL) {
+  // 入室
+  $roomId = enterRoomAndGetRoomId($event->getUserId(), $event->getText());
+  // 成功時
+  if($roomId !== PDO::PARAM_NULL) {
+    replyTextMessage($bot, $event->getReplyToken(), "ルームID" . $roomId . "に入室しました。");
+  }
+  // 失敗時
+  else {
+    replyTextMessage($bot, $event->getReplyToken(), "そのルームIDは存在しません。");
   }
 }
 
@@ -98,6 +139,26 @@ function createRoomAndGetRoomId($userId) {
   return $roomId;
 }
 
+// 入室しルームIDを返す
+function enterRoomAndGetRoomId($userId, $roomId) {
+  $dbh = dbConnection::getConnection();
+  $sql = 'insert into '. TABLE_NAME_SHEETS .' (userid, sheet, roomid) SELECT pgp_sym_encrypt(?, \'' . getenv('DB_ENCRYPT_PASS') . '\'), ?, ? where exists(select roomid from ' . TABLE_NAME_SHEETS . ' where roomid = ?) returning roomid';
+  $sth = $dbh->prepare($sql);
+  $sth->execute(array($userId, PDO::PARAM_NULL, $roomId, $roomId));
+  if (!($row = $sth->fetch())) {
+    return PDO::PARAM_NULL;
+  } else {
+    return $row['roomid'];
+  }
+}
+
+// 退室
+function leaveRoom($userId) {
+  $dbh = dbConnection::getConnection();
+  $sql = 'delete FROM ' . TABLE_NAME_SHEETS . ' where ? = pgp_sym_decrypt(userid, \'' . getenv('DB_ENCRYPT_PASS') . '\')';
+  $sth = $dbh->prepare($sql);
+  $sth->execute(array($userId));
+}
 
 // テキストを返信。引数はLINEBot、返信先、テキスト
 function replyTextMessage($bot, $replyToken, $text) {
