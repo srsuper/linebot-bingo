@@ -7,9 +7,9 @@ define('TABLE_NAME_SHEETS', 'sheets');
 define('TABLE_NAME_ROOMS', 'rooms');
 
 // アクセストークンを使いCurlHTTPClientをインスタンス化
-$httpClient = new \LINE\LINEBot\HTTPClient\CurlHTTPClient(getenv('CHANNEL_ACCESS_TOKEN'));
+$httpClient = new \LINE\LINEBot\HTTPClient\CurlHTTPClient(getenv('yW+3JzStXFAag7jdXUdWOR3hm8YEsghqhjIkCCN4jVtNdkk/8Cxm3oCk1DjghEmYAE/q/MLneriQxDURUsg7xngH1lJGF3c5zIG4E0NpJeIaQUGhhr0jo9DVdI7lYM99wsVTatymBs5gwFjhMMLvMAdB04t89/1O/w1cDnyilFU='));
 // CurlHTTPClientとシークレットを使いLINEBotをインスタンス化
-$bot = new \LINE\LINEBot($httpClient, ['channelSecret' => getenv('CHANNEL_SECRET')]);
+$bot = new \LINE\LINEBot($httpClient, ['channelSecret' => getenv('eae2ca73743b40e6f2af0f3ac8344847')]);
 // LINE Messaging APIがリクエストに付与した署名を取得
 $signature = $_SERVER['HTTP_' . \LINE\LINEBot\Constant\HTTPHeader::LINE_SIGNATURE];
 
